@@ -1,0 +1,6 @@
+.idea/
+node_modules/
+secrets.json
+
+static/bundle.js
+static/bundle.css
