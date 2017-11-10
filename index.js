@@ -41,9 +41,6 @@ app.use(session({
 	saveUninitialized: true,
 }))
 
-app.use(passport.initialize())
-app.use(passport.session())
-
 passport.use(new TwitterStrategy({
 	consumerKey: secrets.TWITTER_CONSUMER_KEY,
 	consumerSecret: secrets.TWITTER_CONSUMER_SECRET,
@@ -51,7 +48,7 @@ passport.use(new TwitterStrategy({
 }, (token, tokenSecret, profile, done) => {
 
 	// if user is new, create profile
-	db.query("SELECT id,allowed_chars FROM users WHERE id=?", [profile.id], (err, results, fields) => {
+	db.query("SELECT id,handle,allowed_chars FROM users WHERE id=?", [profile.id], (err, results, fields) => {
 		if(err) {
 			throw err
 		}
@@ -60,6 +57,7 @@ passport.use(new TwitterStrategy({
 		if(results.length !== 1) {
 			// new user, create profile
 
+			// TODO make sure handle is available before inserting
 			db.query("INSERT INTO users(id, handle, allowed_chars) VALUES(?, ?, 1)",
 				[profile.id, profile.username], (err2) => {
 				if(err2) {
@@ -98,6 +96,9 @@ passport.deserializeUser((id, done) => {
 	})
 })
 
+app.use(passport.initialize())
+app.use(passport.session())
+
 app.get("/", (req, res) => {
 	console.log("User:")
 	console.log(req.user)
@@ -112,13 +113,30 @@ app.get("/bundle.css", (req, res) => {
 	res.sendFile(path.join(__dirname, 'static/bundle.css'))
 })
 
+app.get('/auth/status', (req, res) => {
+	if(req.user) {
+		res.json({
+			authenticated: true,
+			user: req.user
+		})
+	} else {
+		res.json({
+			authenticated: false
+		})
+	}
+})
+
+app.get('/auth/logout', (req, res) => {
+	req.logout()
+	res.redirect('/')
+})
 
 app.get('/auth/twitter', passport.authenticate('twitter'))
 
 app.get('/auth/twitter/callback', passport.authenticate('twitter', {
 	failureRedirect: '/'
 }), (req, res) => {
-	res.end()
+	res.redirect("/")
 })
 
 app.listen(3000, () => {console.log("HTTP server listening")})
